@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"dooqiniu/internal/model"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ type QiniuCommoner struct {
 	accessKey  string
 	secretKey  string
 	bucketName string
+	endpoint   string
 }
 
 func NewQiniuClient() *QiniuCommoner {
@@ -25,11 +25,12 @@ func NewQiniuClient() *QiniuCommoner {
 		accessKey:  os.Getenv("QINIU_ACCESSKEY"),
 		secretKey:  os.Getenv("QINIU_SECRETKEY"),
 		bucketName: os.Getenv("QINIU_BUCKET"),
+		endpoint:   os.Getenv("QINIU_ENDPOINT"),
 	}
 }
 
 // Upload uploads a file to Qiniu Cloud
-func (q *QiniuCommoner) Upload(filePath, objectName string) (*model.UploadResponse, error) {
+func (q *QiniuCommoner) Upload(filePath, objectName string) error {
 	// Initialize credentials
 	mac := credentials.NewCredentials(q.accessKey, q.secretKey)
 
@@ -44,13 +45,13 @@ func (q *QiniuCommoner) Upload(filePath, objectName string) (*model.UploadRespon
 	// Open the file to upload
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
 	// Ensure file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("file does not exist: %s", filePath)
+		return fmt.Errorf("file does not exist: %s", filePath)
 	}
 
 	// Set up object options with target path
@@ -63,16 +64,37 @@ func (q *QiniuCommoner) Upload(filePath, objectName string) (*model.UploadRespon
 	// Perform upload
 	err = uploadManager.UploadFile(context.Background(), filePath, objectOptions, nil)
 	if err != nil {
-		return nil, fmt.Errorf("upload failed: %w", err)
+		return fmt.Errorf("upload failed: %w", err)
 	}
-	model.FileInfo := files[0]
 
-	return &model.UploadResponse{
-		Fsize:   fileInfo.Fsize,   // 文件大小
-		ETag:    fileInfo.Hash,    // 文件的 ETag
-		PutTime: fileInfo.PutTime, // 上传时间
-	}, nil
+	return nil
+}
 
+// GeneratePublicURL 生成公开访问的下载链接
+func (q *QiniuCommoner) GeneratePublicURL(objectName string) string {
+	return storage.MakePublicURL(q.endpoint, objectName)
+}
+
+// GeneratePrivateURL 生成私有访问的下载链接
+func (q *QiniuCommoner) GeneratePrivateURL(objectName string, expiryTime int64) string {
+	mac := auth.New(q.accessKey, q.secretKey)
+	return storage.MakePrivateURL(mac, q.endpoint, objectName, expiryTime)
+}
+
+// Delete deletes a file from the Qiniu bucket
+func (q *QiniuCommoner) Delete(objectName string) error {
+	// 初始化认证
+	mac := auth.New(q.accessKey, q.secretKey)
+
+	// 创建 bucketManager 实例
+	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
+
+	// 执行删除操作
+	err := bucketManager.Delete(q.bucketName, objectName)
+	if err != nil {
+		return fmt.Errorf("failed to delete file: %v", err)
+	}
+	return nil
 }
 
 // ListFiles 列出七牛云桶中的文件
@@ -96,4 +118,36 @@ func (q *QiniuCommoner) ListFiles(prefix, marker string, limit int) ([]storage.L
 
 	// 返回文件列表和下一页的游标
 	return entries, nextMarker, nil
+}
+
+// Copy copies a file within the Qiniu bucket
+func (q *QiniuCommoner) Copy(srcKey, destKey string, force bool) error {
+	// 初始化认证
+	mac := auth.New(q.accessKey, q.secretKey)
+
+	// 创建 bucketManager 实例
+	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
+
+	// 执行复制操作
+	err := bucketManager.Copy(q.bucketName, srcKey, q.bucketName, destKey, force)
+	if err != nil {
+		return fmt.Errorf("failed to copy file: %v", err)
+	}
+	return nil
+}
+
+// Move 移动文件到七牛云存储中的新位置
+func (q *QiniuCommoner) Move(srcObject, destObject string, force bool) error {
+	// 初始化认证
+	mac := auth.New(q.accessKey, q.secretKey)
+
+	// 创建 bucketManager 实例
+	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
+
+	// 执行移动操作
+	err := bucketManager.Move(q.bucketName, srcObject, q.bucketName, destObject, force)
+	if err != nil {
+		return fmt.Errorf("failed to move file: %v", err)
+	}
+	return nil
 }

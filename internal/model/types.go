@@ -21,18 +21,11 @@ type Uploader interface {
 }
 
 // FileInfo 包含文件基本信息
-// type FileInfo struct {
-// 	Key           string    `json:"key"`
-// 	ContentLength int64     `json:"content-length"`
-// 	ETag          string    `json:"etag"`
-// 	LastModified  time.Time `json:"last_modified"`
-// }
-
 type FileInfo struct {
-	Key          string `json:"key"`
-	ContentType  string `json:"content_type"`
-	Size         int64  `json:"size"`
-	LastModified string `json:"last_modified"`
+	Key           string    `json:"key"`
+	ContentLength int64     `json:"content-length"`
+	ETag          string    `json:"etag"`
+	LastModified  time.Time `json:"last_modified"`
 }
 
 type UploadResponse struct {
