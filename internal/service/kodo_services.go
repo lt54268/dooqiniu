@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"dooqiniu/internal/model"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/qiniu/go-sdk/v7/auth"
 	"github.com/qiniu/go-sdk/v7/storage"
@@ -29,12 +31,12 @@ func NewQiniuClient() *QiniuCommoner {
 	}
 }
 
-// Upload uploads a file to Qiniu Cloud
-func (q *QiniuCommoner) Upload(filePath, objectName string) error {
-	// Initialize credentials
+// 上传将文件上传到七牛云
+func (q *QiniuCommoner) Upload(filePath, objectName string) (*model.UploadResponse, error) {
+	// 初始化凭证
 	mac := credentials.NewCredentials(q.accessKey, q.secretKey)
 
-	// Create upload manager with credentials
+	// 创建具有凭证的上传管理器
 	options := uploader.UploadManagerOptions{
 		Options: http_client.Options{
 			Credentials: mac,
@@ -42,19 +44,19 @@ func (q *QiniuCommoner) Upload(filePath, objectName string) error {
 	}
 	uploadManager := uploader.NewUploadManager(&options)
 
-	// Open the file to upload
+	// 打开要上传的文件
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
-	// Ensure file exists
+	// 确保文件存在
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("file does not exist: %s", filePath)
+		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
 
-	// Set up object options with target path
+	// 使用目标路径设置对象选项
 	objectOptions := &uploader.ObjectOptions{
 		BucketName: q.bucketName,
 		ObjectName: &objectName,
@@ -64,10 +66,24 @@ func (q *QiniuCommoner) Upload(filePath, objectName string) error {
 	// Perform upload
 	err = uploadManager.UploadFile(context.Background(), filePath, objectOptions, nil)
 	if err != nil {
-		return fmt.Errorf("upload failed: %w", err)
+		return nil, fmt.Errorf("upload failed: %w", err)
 	}
 
-	return nil
+	// After upload, retrieve the file info using ListFiles
+	files, _, err := q.ListFiles(objectName, "", 1)
+	if err != nil || len(files) == 0 {
+		return nil, fmt.Errorf("failed to retrieve file info: %v", err)
+	}
+
+	// Extract required information
+	fileInfo := files[0]
+	uploadResponse := &model.UploadResponse{
+		ContentLength: fileInfo.Fsize,
+		ETag:          fileInfo.Hash,
+		LastModified:  time.Unix(fileInfo.PutTime/1e7, 0).UTC(), // Convert to time
+	}
+
+	return uploadResponse, nil
 }
 
 // GeneratePublicURL 生成公开访问的下载链接

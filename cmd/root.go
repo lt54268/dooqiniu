@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	//_ "dooalioss/docs"
+	_ "dooqiniu/docs"
 	"dooqiniu/internal/config"
 	"dooqiniu/router"
 	"fmt"
@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
-	//ginSwagger "github.com/swaggo/gin-swagger"
-	//"github.com/swaggo/gin-swagger/swaggerFiles"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // rootCmd 代表基本命令
@@ -27,7 +27,7 @@ var rootCmd = &cobra.Command{
 		// 设置路由
 		router.SetupRoutes(r)
 
-		//r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 		// 启动服务器
 		fmt.Println("Starting server on :" + cfg.Port)

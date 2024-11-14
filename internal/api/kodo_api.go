@@ -1,6 +1,7 @@
 package api
 
 import (
+	"dooqiniu/internal/model"
 	"dooqiniu/internal/service"
 	"net/http"
 	"strconv"
@@ -9,7 +10,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// UploadHandler handles file upload requests to Qiniu Cloud
+// UploadHandler 文件上传接口
+// @Summary 上传文件至七牛云
+// @Description 根据文件路径和目标对象名称，将文件上传至七牛云存储
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param filePath query string true "本地文件路径"
+// @Param objectName query string true "目标对象名称"
+// @Success 200 {object} map[string]interface{} "上传成功，返回文件信息"
+// @Failure 400 {object} map[string]interface{} "缺少必要参数 filePath 和 objectName"
+// @Failure 500 {object} map[string]interface{} "上传失败"
+// @Router /api/v1/upload [get]
 func UploadHandler(c *gin.Context) {
 	// Get parameters from request
 	filePath := c.Query("filePath")
@@ -18,7 +30,7 @@ func UploadHandler(c *gin.Context) {
 	if filePath == "" || objectName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code": http.StatusBadRequest,
-			"msg":  "filePath and objectName are required parameters",
+			"msg":  "缺少filePath 和 objectName参数",
 		})
 		return
 	}
@@ -26,8 +38,8 @@ func UploadHandler(c *gin.Context) {
 	// Initialize Qiniu uploader
 	uploader := service.NewQiniuClient()
 
-	// Perform the upload
-	err := uploader.Upload(filePath, objectName)
+	// Perform the upload and get file info
+	uploadResponse, err := uploader.Upload(filePath, objectName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code": http.StatusInternalServerError,
@@ -39,10 +51,21 @@ func UploadHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": http.StatusOK,
 		"msg":  "上传成功",
+		"data": uploadResponse,
 	})
 }
 
-// DownloadHandler 处理文件下载请求
+// DownloadFileHandler 生成文件下载链接接口
+// @Summary 生成文件下载链接
+// @Description 根据文件名生成私有或公共的下载链接
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param objectName query string true "文件名"
+// @Param accessType query string false "访问类型 ('public' 或 'private')" 默认 "private"
+// @Success 200 {object} map[string]interface{} "生成下载链接成功，返回下载链接"
+// @Failure 400 {object} map[string]interface{} "缺少必要参数 objectName"
+// @Router /api/v1/download [get]
 func DownloadFileHandler(c *gin.Context) {
 	objectName := c.Query("objectName")
 	accessType := c.DefaultQuery("accessType", "private") // "public" or "private"
@@ -76,7 +99,17 @@ func DownloadFileHandler(c *gin.Context) {
 	})
 }
 
-// DeleteFileHandler handles file delete requests from Qiniu Cloud
+// DeleteFileHandler 删除文件接口
+// @Summary 删除文件
+// @Description 根据文件名删除七牛云中的文件
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param objectName query string true "文件名"
+// @Success 200 {object} map[string]interface{} "文件删除成功"
+// @Failure 400 {object} map[string]interface{} "缺少必要参数 objectName"
+// @Failure 500 {object} map[string]interface{} "文件删除失败"
+// @Router /api/v1/delete [delete]
 func DeleteFileHandler(c *gin.Context) {
 	objectName := c.Query("objectName")
 	if objectName == "" {
@@ -107,7 +140,18 @@ func DeleteFileHandler(c *gin.Context) {
 	})
 }
 
-// ListFilesHandler 处理获取七牛云文件列表的请求
+// ListFilesHandler 获取文件列表接口
+// @Summary 获取文件列表
+// @Description 列出七牛云存储空间中的文件
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param prefix query string false "文件名前缀筛选条件"
+// @Param marker query string false "游标，继续从上次读取的标记处开始列出"
+// @Param limit query int false "每次列举的最大文件数量 (1-1000)"
+// @Success 200 {object} map[string]interface{} "文件列表获取成功，返回文件信息及下一页游标"
+// @Failure 500 {object} map[string]interface{} "文件列表获取失败"
+// @Router /api/v1/list [get]
 func ListFilesHandler(c *gin.Context) {
 	// 获取请求参数
 	prefix := c.DefaultQuery("prefix", "") // 文件前缀
@@ -115,7 +159,7 @@ func ListFilesHandler(c *gin.Context) {
 	limit := 1000                          // 默认每次最多列举 1000 个文件
 	if c.Query("limit") != "" {
 		// 如果有指定 limit，转换为整数
-		parsedLimit, err := strconv.Atoi(c.DefaultQuery("limit", "1000"))
+		parsedLimit, err := strconv.Atoi(c.Query("limit"))
 		if err == nil && parsedLimit > 0 && parsedLimit <= 1000 {
 			limit = parsedLimit
 		}
@@ -134,16 +178,39 @@ func ListFilesHandler(c *gin.Context) {
 		return
 	}
 
+	// Map original file list to a limited field response
+	var limitedFiles []model.FileInfo
+	for _, file := range files {
+		limitedFiles = append(limitedFiles, model.FileInfo{
+			Key:           file.Key,
+			ContentLength: file.Fsize,
+			ETag:          file.Hash,
+			LastModified:  time.Unix(file.PutTime/1e7, 0).UTC(), // Convert timestamp to time.Time
+		})
+	}
+
 	// 返回文件列表和下一页游标
 	c.JSON(http.StatusOK, gin.H{
 		"code":        http.StatusOK,
-		"msg":         "File list retrieved successfully",
-		"files":       files,
+		"msg":         "文件列表获取成功",
+		"files":       limitedFiles,
 		"next_marker": nextMarker,
 	})
 }
 
-// CopyFileHandler handles file copy requests on Qiniu Cloud
+// CopyFileHandler 复制文件接口
+// @Summary 复制文件
+// @Description 将七牛云存储空间中的文件从一个位置复制到另一个位置
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param srcObject query string true "源文件名"
+// @Param destObject query string true "目标文件名"
+// @Param force query bool false "是否强制覆盖目标文件（true/false，默认为 false）"
+// @Success 200 {object} map[string]interface{} "文件复制成功"
+// @Failure 400 {object} map[string]interface{} "srcKey、destKey 缺失或 force 参数无效"
+// @Failure 500 {object} map[string]interface{} "文件复制失败"
+// @Router /api/v1/copy [post]
 func CopyFileHandler(c *gin.Context) {
 	// 获取源文件名和目标文件名
 	srcKey := c.Query("srcObject")
@@ -188,7 +255,19 @@ func CopyFileHandler(c *gin.Context) {
 	})
 }
 
-// MoveFileHandler 处理文件移动请求
+// MoveFileHandler 移动文件接口
+// @Summary 移动文件
+// @Description 将七牛云存储空间中的文件从一个位置移动到另一个位置
+// @Tags 文件管理
+// @Accept json
+// @Produce json
+// @Param srcObject query string true "源文件名"
+// @Param destObject query string true "目标文件名"
+// @Param force query bool false "是否强制覆盖目标文件（true/false，默认为 false）"
+// @Success 200 {object} map[string]interface{} "文件移动成功"
+// @Failure 400 {object} map[string]interface{} "srcKey、destKey 缺失或 force 参数无效"
+// @Failure 500 {object} map[string]interface{} "文件移动失败"
+// @Router /api/v1/move [post]
 func MoveFileHandler(c *gin.Context) {
 	// 获取源文件名和目标文件名
 	srcKey := c.Query("srcObject")
