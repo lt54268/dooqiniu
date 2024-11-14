@@ -1,10 +1,10 @@
 # 七牛云 Kodo
 运行：go run main.go
 
-API文档：http://127.0.0.1:6060/swagger/index.html
+API文档：http://127.0.0.1:9090/swagger/index.html
 
 ## 一、上传接口（POST）
-http://127.0.0.1:6060/api/v1/upload
+http://127.0.0.1:9090/api/v1/upload
 
 参数：filePath、objectName
 
@@ -22,7 +22,7 @@ http://127.0.0.1:6060/api/v1/upload
 ```
 
 ## 二、下载接口（GET）
-http://127.0.0.1:6060/api/v1/download
+http://127.0.0.1:9090/api/v1/download
 
 参数：objectName
 
@@ -38,7 +38,7 @@ http://127.0.0.1:6060/api/v1/download
 ```
 
 ## 三、删除接口（DELETE）
-http://127.0.0.1:6060/api/v1/delete
+http://127.0.0.1:9090/api/v1/delete
 
 参数：objectName
 
@@ -51,7 +51,7 @@ http://127.0.0.1:6060/api/v1/delete
 ```
 
 ## 四、获取文件列表接口（GET）
-http://127.0.0.1:6060/api/v1/list
+http://127.0.0.1:9090/api/v1/list
 
 参数（可选）：
 prefix（返回的文件前缀，留空默认全部返回）
@@ -88,7 +88,7 @@ limit（每次返回的文件数量，默认一次返回1000条数据）
 ```
 
 ## 五、拷贝接口（POST）
-http://127.0.0.1:6060/api/v1/copy
+http://127.0.0.1:9090/api/v1/copy
 
 参数：srcObject、destObject
 
@@ -101,7 +101,7 @@ http://127.0.0.1:6060/api/v1/copy
 ```
 
 ## 六、移动接口（POST）
-http://127.0.0.1:6060/api/v1/move
+http://127.0.0.1:9090/api/v1/move
 
 参数：rcObject、destObject
 

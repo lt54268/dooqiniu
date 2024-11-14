@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dooqiniu-app
+    image: dooqiniu-app:latest
+    ports:
+      - "9090:9090"
+    environment:
+      - PORT=9090
+      - QINIU_REGION=${QINIU_REGION}
+      - QINIU_ENDPOINT=${QINIU_ENDPOINT}
+      - QINIU_BUCKET=${QINIU_BUCKET}
+      - QINIU_ACCESSKEY=${QINIU_ACCESSKEY}
+      - QINIU_SECRETKEY=${QINIU_SECRETKEY}
+    env_file:
+      - .env
+    restart: always
+    
