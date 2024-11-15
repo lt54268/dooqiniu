@@ -28,6 +28,7 @@ type FileInfo struct {
 	LastModified  time.Time `json:"last_modified"`
 }
 
+// UploadResponse 包含上传文件后的响应信息
 type UploadResponse struct {
 	ContentLength int64     `json:"content-length"`
 	ETag          string    `json:"etag"`

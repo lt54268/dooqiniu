@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-// LoadConfig 从环境变量加载配置信息
+// 从环境变量加载配置信息
 func LoadQiniuConfig() *model.Config {
 	return &model.Config{
 		Port:           os.Getenv("PORT"),            // 从环境变量读取端口

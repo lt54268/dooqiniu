@@ -33,7 +33,6 @@ func NewQiniuClient() *QiniuCommoner {
 
 // 上传将文件上传到七牛云
 func (q *QiniuCommoner) Upload(filePath, objectName string) (*model.UploadResponse, error) {
-	// 初始化凭证
 	mac := credentials.NewCredentials(q.accessKey, q.secretKey)
 
 	// 创建具有凭证的上传管理器
@@ -44,14 +43,12 @@ func (q *QiniuCommoner) Upload(filePath, objectName string) (*model.UploadRespon
 	}
 	uploadManager := uploader.NewUploadManager(&options)
 
-	// 打开要上传的文件
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
-	// 确保文件存在
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
@@ -63,19 +60,19 @@ func (q *QiniuCommoner) Upload(filePath, objectName string) (*model.UploadRespon
 		FileName:   filepath.Base(filePath),
 	}
 
-	// Perform upload
+	// 执行上传
 	err = uploadManager.UploadFile(context.Background(), filePath, objectOptions, nil)
 	if err != nil {
 		return nil, fmt.Errorf("upload failed: %w", err)
 	}
 
-	// After upload, retrieve the file info using ListFiles
+	// 上传后，使用 ListFiles 获取文件信息
 	files, _, err := q.ListFiles(objectName, "", 1)
 	if err != nil || len(files) == 0 {
 		return nil, fmt.Errorf("failed to retrieve file info: %v", err)
 	}
 
-	// Extract required information
+	// 提取所需信息
 	fileInfo := files[0]
 	uploadResponse := &model.UploadResponse{
 		ContentLength: fileInfo.Fsize,
@@ -97,12 +94,10 @@ func (q *QiniuCommoner) GeneratePrivateURL(objectName string, expiryTime int64) 
 	return storage.MakePrivateURL(mac, q.endpoint, objectName, expiryTime)
 }
 
-// Delete deletes a file from the Qiniu bucket
+// Delete 从七牛云中删除文件
 func (q *QiniuCommoner) Delete(objectName string) error {
-	// 初始化认证
 	mac := auth.New(q.accessKey, q.secretKey)
 
-	// 创建 bucketManager 实例
 	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
 
 	// 执行删除操作
@@ -115,10 +110,8 @@ func (q *QiniuCommoner) Delete(objectName string) error {
 
 // ListFiles 列出七牛云桶中的文件
 func (q *QiniuCommoner) ListFiles(prefix, marker string, limit int) ([]storage.ListItem, string, error) {
-	// 初始化认证
 	mac := auth.New(q.accessKey, q.secretKey)
 
-	// 创建 bucketManager 实例
 	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
 
 	// 获取文件列表
@@ -127,7 +120,7 @@ func (q *QiniuCommoner) ListFiles(prefix, marker string, limit int) ([]storage.L
 		return nil, "", fmt.Errorf("failed to list files: %v", err)
 	}
 
-	// 这里我们只返回文件项列表和下一页的 marker
+	// 只返回文件项列表和下一页的 marker
 	if !hasNext {
 		nextMarker = ""
 	}
@@ -136,12 +129,10 @@ func (q *QiniuCommoner) ListFiles(prefix, marker string, limit int) ([]storage.L
 	return entries, nextMarker, nil
 }
 
-// Copy copies a file within the Qiniu bucket
+// Copy 从七牛云中复制文件到新位置
 func (q *QiniuCommoner) Copy(srcKey, destKey string, force bool) error {
-	// 初始化认证
 	mac := auth.New(q.accessKey, q.secretKey)
 
-	// 创建 bucketManager 实例
 	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
 
 	// 执行复制操作
@@ -154,10 +145,8 @@ func (q *QiniuCommoner) Copy(srcKey, destKey string, force bool) error {
 
 // Move 移动文件到七牛云存储中的新位置
 func (q *QiniuCommoner) Move(srcObject, destObject string, force bool) error {
-	// 初始化认证
 	mac := auth.New(q.accessKey, q.secretKey)
 
-	// 创建 bucketManager 实例
 	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
 
 	// 执行移动操作
